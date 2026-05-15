@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:\\\\Users\\\\talja\\\\OneDrive\\\\שולחן העבודה\\\\trading journal\\\\.claude\\\\skills\\\\fullstack-developer\" \"C:\\\\Users\\\\talja\\\\OneDrive\\\\שולחן העבודה\\\\trading journal\\\\.claude\\\\skills\\\\trading-journal\" \"C:\\\\Users\\\\talja\\\\OneDrive\\\\שולחן העבודה\\\\trading journal\\\\.claude\\\\skills\\\\ui-trading\")",
+      "Bash(npm --version)",
+      "Bash(node scripts/generate-icons.cjs)",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const p = require\\('./node_modules/@supabase/supabase-js/package.json'\\); console.log\\(p.version\\)\")"
+    ]
+  }
+}
