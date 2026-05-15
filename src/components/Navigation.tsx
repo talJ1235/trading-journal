@@ -10,9 +10,36 @@ const navItems = [
   { to: '/goals', icon: Target, label: 'Goals' },
 ] as const
 
+function UserAvatar({ url, initials }: { url?: string; initials: string }) {
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt="Profile"
+        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+        referrerPolicy="no-referrer"
+      />
+    )
+  }
+  return (
+    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+      <span className="text-xs font-bold text-white">{initials}</span>
+    </div>
+  )
+}
+
 export default function Navigation() {
   const navigate = useNavigate()
-  const { setSession } = useAuthStore()
+  const { user, setSession } = useAuthStore()
+
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined
+  const initials = (() => {
+    const name = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? ''
+    const parts = name.trim().split(/\s+/).filter(Boolean)
+    if (parts.length >= 2) return (parts[0][0]! + parts[1][0]!).toUpperCase()
+    return name.slice(0, 2).toUpperCase() || 'TJ'
+  })()
+  const email = user?.email ?? ''
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -24,8 +51,13 @@ export default function Navigation() {
     <>
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-60 bg-[#1A1A1A] border-r border-[#2A2A2A] z-40">
-        <div className="p-6 border-b border-[#2A2A2A]">
-          <h1 className="text-lg font-bold text-white tracking-tight">Trading Journal</h1>
+        {/* User profile header */}
+        <div className="p-5 border-b border-[#2A2A2A] flex items-center gap-3">
+          <UserAvatar url={avatarUrl} initials={initials} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate leading-tight">Trading Journal</p>
+            <p className="text-xs text-zinc-500 truncate mt-0.5">{email}</p>
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -59,7 +91,7 @@ export default function Navigation() {
         </div>
       </aside>
 
-      {/* Mobile bottom navigation — inner 60px row + pb-safe fill for iOS home bar */}
+      {/* Mobile bottom navigation — 4 nav items + avatar/logout */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1A1A1A] border-t border-[#2A2A2A] z-40" aria-label="Main navigation">
         <div className="flex h-[60px]">
           {navItems.map(({ to, icon: Icon, label }) => (
@@ -76,6 +108,16 @@ export default function Navigation() {
               <span>{label}</span>
             </NavLink>
           ))}
+
+          {/* Avatar + logout as 5th item */}
+          <button
+            onClick={handleLogout}
+            aria-label="Logout"
+            className="flex flex-col items-center justify-center flex-1 gap-1 py-2 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            <UserAvatar url={avatarUrl} initials={initials} />
+            <span>Logout</span>
+          </button>
         </div>
         {/* Fills the iOS safe area below the nav bar */}
         <div className="pb-safe bg-[#1A1A1A]" />

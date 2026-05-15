@@ -36,3 +36,12 @@ src/
 - No light theme
 - No mock data
 - Do not expose Supabase service role key on client
+
+## Git Workflow
+After completing ANY task that modifies files:
+1. Run `git add .`
+2. Run `git commit -m "brief description of what was changed"`
+3. Run `git push`
+
+Do this automatically at the end of every task without being asked.
+Never skip this step. The commit message should describe what was built or fixed in plain English, max 10 words.

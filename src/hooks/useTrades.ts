@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 import { useTradesStore } from '../store/tradesStore'
 import { getAutoTag } from '../lib/utils'
+import { sanitizeText, sanitizeMaybe } from '../lib/sanitize'
 import type { Trade } from '../types'
 
 export type TradeInput = Omit<Trade, 'id' | 'created_at' | 'user_id' | 'tag'>
@@ -36,12 +37,21 @@ export function useTrades() {
     void fetchTrades()
   }, [fetchTrades])
 
+  const sanitizeInput = (input: Partial<TradeInput>): Partial<TradeInput> => ({
+    ...input,
+    symbol: input.symbol != null ? sanitizeText(input.symbol, 10) : input.symbol,
+    notes: sanitizeMaybe(input.notes, 500) as string | null | undefined,
+    lesson: sanitizeMaybe(input.lesson, 500) as string | null | undefined,
+    signal: sanitizeMaybe(input.signal, 200) as string | null | undefined,
+  })
+
   const addTrade = async (input: TradeInput): Promise<Trade> => {
     if (!user) throw new Error('Not authenticated')
-    const tag = getAutoTag(input)
+    const clean = sanitizeInput(input) as TradeInput
+    const tag = getAutoTag(clean)
     const { data, error } = await supabase
       .from('trades')
-      .insert({ ...input, user_id: user.id, tag })
+      .insert({ ...clean, user_id: user.id, tag })
       .select()
       .single()
     if (error) throw error
@@ -51,10 +61,11 @@ export function useTrades() {
   }
 
   const updateTrade = async (id: string, updates: Partial<TradeInput>): Promise<Trade> => {
-    const tag = getAutoTag(updates)
+    const clean = sanitizeInput(updates)
+    const tag = getAutoTag(clean)
     const { data, error } = await supabase
       .from('trades')
-      .update({ ...updates, tag })
+      .update({ ...clean, tag })
       .eq('id', id)
       .select()
       .single()
