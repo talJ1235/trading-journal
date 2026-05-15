@@ -3,6 +3,20 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 import type { Deposit } from '../types'
 
+export async function checkDepositExists(
+  userId: string,
+  date: string,
+  amount: number
+): Promise<boolean> {
+  const { count } = await supabase
+    .from('deposits')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('date', date)
+    .eq('amount', amount)
+  return (count ?? 0) > 0
+}
+
 export function useDeposits() {
   const { user } = useAuthStore()
   const [deposits, setDeposits] = useState<Deposit[]>([])

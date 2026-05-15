@@ -1,5 +1,12 @@
 import Papa from 'papaparse'
 
+// ─── Known ETF symbols ────────────────────────────────────────────────────────
+const KNOWN_ETFS = new Set([
+  'IGV', 'QQQM', 'CSPX', 'SPY', 'QQQ', 'IVV', 'VTI',
+  'GLD', 'TLT', 'VOO', 'ARKK', 'XLK', 'XLF', 'IBIT', 'SOXX', 'SMH',
+])
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 export interface IBKRRow {
   symbol: string
   direction: 'long' | 'short'
@@ -7,88 +14,156 @@ export interface IBKRRow {
   quantity: number
   entry_price: number
   pnl: number | null
-  type: 'stock'
+  type: 'stock' | 'etf'
 }
 
-export interface ParseResult {
+export interface IBKRDepositRow {
+  date: string    // YYYY-MM-DD
+  amount: number  // positive = deposit, negative = withdrawal
+  notes: string
+}
+
+export interface IBKRParseResult {
   rows: IBKRRow[]
+  deposits: IBKRDepositRow[]
   skipped: number
 }
 
-function stripTime(dateStr: string): string {
-  // "2024-01-15, 09:30:00" or "2024-01-15" → "2024-01-15"
-  return dateStr.split(',')[0].trim()
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function stripTime(s: string): string {
+  // "2026-05-12 09:30:00" or "2026-05-12, 09:30:00" → "2026-05-12"
+  return s.split(',')[0].split(' ')[0].trim()
 }
 
-export function parseIBKRCsv(csvString: string): ParseResult {
-  const result = Papa.parse<string[]>(csvString, { skipEmptyLines: true })
-  const allRows = result.data
+function parseNum(s: string | undefined): number | null {
+  if (!s || s.trim() === '-' || s.trim() === '') return null
+  const n = parseFloat(s.replace(/,/g, ''))
+  return isNaN(n) ? null : n
+}
 
-  // Find the header row for the Trades section
+function etfOrStock(symbol: string): 'stock' | 'etf' {
+  return KNOWN_ETFS.has(symbol) ? 'etf' : 'stock'
+}
+
+// ─── Format detection ─────────────────────────────────────────────────────────
+type Format = 'txn' | 'trades' | 'unknown'
+
+function detectFormat(allRows: string[][]): Format {
+  for (const row of allRows) {
+    if (row[0] === 'Transaction History') return 'txn'
+    if (row[0] === 'Trades') return 'trades'
+  }
+  return 'unknown'
+}
+
+// ─── Transaction History parser ───────────────────────────────────────────────
+// Columns: [0]section [1]type [2]date [3]account [4]description
+//          [5]txnType [6]symbol [7]qty [8]price [9]currency
+//          [10]grossAmount [11]commission [12]netAmount
+function parseTxnHistory(allRows: string[][]): IBKRParseResult {
+  const rows: IBKRRow[] = []
+  const deposits: IBKRDepositRow[] = []
+  let skipped = 0
+
+  for (const row of allRows) {
+    if (row[0] !== 'Transaction History' || row[1] !== 'Data') continue
+
+    const txnType = (row[5] ?? '').trim()
+    const symbol = (row[6] ?? '').trim().toUpperCase()
+
+    if (txnType === 'Buy' || txnType === 'Sell') {
+      if (!symbol || symbol === '-') { skipped++; continue }
+
+      const date = stripTime(row[2] ?? '')
+      const qty = parseNum(row[7])
+      const price = parseNum(row[8])
+
+      if (!date || qty == null || price == null || price <= 0) { skipped++; continue }
+
+      // Buy = position opened → no realized P&L; Sell = position closed → use gross amount
+      const rawPnl = txnType === 'Sell' ? parseNum(row[10]) : null
+      const pnl = rawPnl === 0 ? null : rawPnl
+
+      rows.push({
+        symbol,
+        direction: txnType === 'Buy' ? 'long' : 'short',
+        entry_date: date,
+        quantity: Math.abs(qty),
+        entry_price: price,
+        pnl,
+        type: etfOrStock(symbol),
+      })
+    } else if (txnType === 'Deposit' || txnType === 'Withdrawal') {
+      const amount = parseNum(row[10])
+      if (amount == null) { skipped++; continue }
+
+      deposits.push({
+        date: stripTime(row[2] ?? ''),
+        amount,
+        notes: (row[4] ?? '').trim(),
+      })
+    } else {
+      // Adjustment, Dividend, Interest, Tax, Forex Trade Component, etc.
+      skipped++
+    }
+  }
+
+  return { rows, deposits, skipped }
+}
+
+// ─── Classic Trades report parser (unchanged logic, updated return type) ───────
+// Columns are header-driven; see IBKRRow for field mapping.
+function parseTradesReport(allRows: string[][]): IBKRParseResult {
   let headerIdx = -1
   for (let i = 0; i < allRows.length; i++) {
-    const row = allRows[i]
-    if (row[0] === 'Trades' && row[1] === 'Header') {
+    if (allRows[i][0] === 'Trades' && allRows[i][1] === 'Header') {
       headerIdx = i
       break
     }
   }
-
-  if (headerIdx === -1) {
-    return { rows: [], skipped: 0 }
-  }
+  if (headerIdx === -1) return { rows: [], deposits: [], skipped: 0 }
 
   const headers = allRows[headerIdx].map((h) => h.trim())
-
   const col = (name: string) => headers.indexOf(name)
 
-  const idxDataDiscriminator = col('DataDiscriminator')
+  const idxDisc = col('DataDiscriminator')
   const idxSymbol = col('Symbol')
   const idxDateTime = col('Date/Time')
-  const idxQuantity = col('Quantity')
+  const idxQty = col('Quantity')
   const idxTPrice = col('T. Price')
-  const idxRealizedPnl = col('Realized P/L')
+  const idxPnl = col('Realized P/L')
   const idxBuySell = col('Buy/Sell')
-  const idxAssetCategory = col('Asset Category')
+  const idxAsset = col('Asset Category')
 
   const rows: IBKRRow[] = []
   let skipped = 0
 
   for (let i = headerIdx + 1; i < allRows.length; i++) {
     const row = allRows[i]
-
-    // Only process Trades section data rows
     if (row[0] !== 'Trades') break
-    if (row[idxDataDiscriminator] !== 'Data') { skipped++; continue }
+    if (row[idxDisc] !== 'Data') { skipped++; continue }
 
-    // Skip summary/total rows
     const symbol = idxSymbol !== -1 ? row[idxSymbol]?.trim() : ''
     if (!symbol || symbol.toLowerCase().includes('total')) { skipped++; continue }
 
-    // Only stocks
-    if (idxAssetCategory !== -1) {
-      const cat = row[idxAssetCategory]?.trim().toLowerCase()
+    if (idxAsset !== -1) {
+      const cat = row[idxAsset]?.trim().toLowerCase()
       if (cat && cat !== 'stocks') { skipped++; continue }
     }
 
-    const dateRaw = idxDateTime !== -1 ? row[idxDateTime]?.trim() : ''
-    const qtyRaw = idxQuantity !== -1 ? row[idxQuantity]?.trim().replace(/,/g, '') : ''
-    const priceRaw = idxTPrice !== -1 ? row[idxTPrice]?.trim().replace(/,/g, '') : ''
-    const pnlRaw = idxRealizedPnl !== -1 ? row[idxRealizedPnl]?.trim().replace(/,/g, '') : ''
-    const buySellRaw = idxBuySell !== -1 ? row[idxBuySell]?.trim() : ''
+    const dateRaw = (idxDateTime !== -1 ? row[idxDateTime]?.trim() : '') ?? ''
+    const qtyRaw = (idxQty !== -1 ? row[idxQty]?.trim().replace(/,/g, '') : '') ?? ''
+    const priceRaw = (idxTPrice !== -1 ? row[idxTPrice]?.trim().replace(/,/g, '') : '') ?? ''
+    const pnlRaw = (idxPnl !== -1 ? row[idxPnl]?.trim().replace(/,/g, '') : '') ?? ''
+    const buySellRaw = (idxBuySell !== -1 ? row[idxBuySell]?.trim() : '') ?? ''
 
-    const qtyNum = parseFloat(qtyRaw)
-    const priceNum = parseFloat(priceRaw)
+    const qty = parseFloat(qtyRaw)
+    const price = parseFloat(priceRaw)
+    if (!dateRaw || isNaN(qty) || isNaN(price)) { skipped++; continue }
 
-    if (!dateRaw || isNaN(qtyNum) || isNaN(priceNum)) { skipped++; continue }
-
-    // Direction: prefer Buy/Sell column, fall back to Quantity sign
-    let direction: 'long' | 'short'
-    if (buySellRaw) {
-      direction = buySellRaw.toLowerCase().startsWith('buy') ? 'long' : 'short'
-    } else {
-      direction = qtyNum >= 0 ? 'long' : 'short'
-    }
+    const direction: 'long' | 'short' = buySellRaw
+      ? (buySellRaw.toLowerCase().startsWith('buy') ? 'long' : 'short')
+      : (qty >= 0 ? 'long' : 'short')
 
     const pnlNum = pnlRaw ? parseFloat(pnlRaw) : NaN
     const pnl = !isNaN(pnlNum) && pnlNum !== 0 ? pnlNum : null
@@ -97,12 +172,23 @@ export function parseIBKRCsv(csvString: string): ParseResult {
       symbol,
       direction,
       entry_date: stripTime(dateRaw),
-      quantity: Math.abs(Math.round(qtyNum)),
-      entry_price: priceNum,
+      quantity: Math.abs(Math.round(qty)),
+      entry_price: price,
       pnl,
-      type: 'stock',
+      type: etfOrStock(symbol),
     })
   }
 
-  return { rows, skipped }
+  return { rows, deposits: [], skipped }
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+export function parseIBKRCsv(csvString: string): IBKRParseResult {
+  const result = Papa.parse<string[]>(csvString, { skipEmptyLines: true })
+  const allRows = result.data
+
+  const format = detectFormat(allRows)
+  if (format === 'txn') return parseTxnHistory(allRows)
+  if (format === 'trades') return parseTradesReport(allRows)
+  return { rows: [], deposits: [], skipped: 0 }
 }
