@@ -24,7 +24,7 @@ function toDateStr(date: Date): string {
 
 export default function PatternsPage() {
   const patterns = usePatterns()
-  const { trades } = useTradesStore()
+  const { trades, loading } = useTradesStore()
 
   const { weekStart, weekEnd, weekTrades } = useMemo(() => {
     const monday = getMonday(new Date())
@@ -37,6 +37,21 @@ export default function PatternsPage() {
     )
     return { weekStart, weekEnd, weekTrades }
   }, [trades])
+
+  if (loading) {
+    return (
+      <PageTransition>
+        <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4 pb-24 md:pb-8 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+              <div className="h-3 bg-zinc-800 rounded w-28 mb-4" />
+              <div className="h-32 bg-zinc-800 rounded-xl" />
+            </div>
+          ))}
+        </div>
+      </PageTransition>
+    )
+  }
 
   return (
     <PageTransition>

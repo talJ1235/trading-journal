@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/authStore'
@@ -20,21 +20,48 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const SESSION_KEY = 'session_start'
 const MAX_SESSION_AGE = 7 * 24 * 60 * 60 * 1000
 
+function PageSkeleton() {
+  return (
+    <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4 animate-pulse pt-6">
+      <div className="h-8 bg-zinc-800 rounded-xl w-1/3" />
+      <div className="h-32 bg-zinc-800 rounded-2xl" />
+      <div className="h-24 bg-zinc-800 rounded-2xl" />
+      <div className="h-24 bg-zinc-800 rounded-2xl" />
+    </div>
+  )
+}
+
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    const main = document.querySelector('main')
+    if (main) main.scrollTop = 0
+  }, [pathname])
+  return null
+}
+
 function AppShell() {
+  const location = useLocation()
+
   return (
     <div className="flex h-screen bg-[#0F0F0F]">
       <Navigation />
       {/* md:ml-60 = sidebar width; pb-nav-safe = 60px mobile nav + iOS safe area */}
       <main className="flex-1 md:ml-60 overflow-y-auto pb-nav-safe md:pb-0">
-        <Routes>
-          <Route path="/" element={<Navigate to="/trades" replace />} />
-          <Route path="/trades" element={<ErrorBoundary><TradesPage /></ErrorBoundary>} />
-          <Route path="/review" element={<ErrorBoundary><ReviewPage /></ErrorBoundary>} />
-          <Route path="/patterns" element={<ErrorBoundary><PatternsPage /></ErrorBoundary>} />
-          <Route path="/goals" element={<ErrorBoundary><GoalsPage /></ErrorBoundary>} />
-          <Route path="/settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
-          <Route path="*" element={<Navigate to="/trades" replace />} />
-        </Routes>
+        <ScrollToTop />
+        <Suspense fallback={<PageSkeleton />}>
+          <AnimatePresence mode="wait" initial={false}>
+            <Routes location={location} key={location.pathname}>
+              <Route path="/" element={<Navigate to="/trades" replace />} />
+              <Route path="/trades" element={<ErrorBoundary><TradesPage /></ErrorBoundary>} />
+              <Route path="/review" element={<ErrorBoundary><ReviewPage /></ErrorBoundary>} />
+              <Route path="/patterns" element={<ErrorBoundary><PatternsPage /></ErrorBoundary>} />
+              <Route path="/goals" element={<ErrorBoundary><GoalsPage /></ErrorBoundary>} />
+              <Route path="/settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
+              <Route path="*" element={<Navigate to="/trades" replace />} />
+            </Routes>
+          </AnimatePresence>
+        </Suspense>
       </main>
       <PWAInstallPrompt />
     </div>
@@ -46,7 +73,6 @@ export default function App() {
   const [showExpiredToast, setShowExpiredToast] = useState(false)
 
   useEffect(() => {
-    // Auto-dismiss the session-expired toast after 5 seconds
     if (!showExpiredToast) return
     const t = setTimeout(() => setShowExpiredToast(false), 5000)
     return () => clearTimeout(t)
@@ -57,7 +83,6 @@ export default function App() {
       if (session) {
         const start = parseInt(localStorage.getItem(SESSION_KEY) ?? '0', 10)
         if (start && Date.now() - start > MAX_SESSION_AGE) {
-          // Force re-login — session too old
           void supabase.auth.signOut()
           localStorage.removeItem(SESSION_KEY)
           setSession(null)

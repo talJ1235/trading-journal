@@ -25,23 +25,12 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-4 space-y-4 animate-pulse">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-12 bg-zinc-800 rounded-xl" />
-        ))}
+      <div className="p-4 md:p-8 space-y-4 max-w-3xl animate-pulse">
+        <div className="h-7 bg-zinc-800 rounded-xl w-28" />
+        <div className="h-48 bg-zinc-800 rounded-2xl" />
+        <div className="h-32 bg-zinc-800 rounded-2xl" />
       </div>
     )
-  }
-
-  const renderSection = () => {
-    switch (active) {
-      case 'personal': return <PersonalInfo />
-      case 'account': return <AccountSettings onUpdate={updateSettings} />
-      case 'trading': return <TradingPreferences onUpdate={updateSettings} />
-      case 'security': return <PasswordSecurity />
-      case 'data': return <DataExport />
-      case 'danger': return <DangerZone />
-    }
   }
 
   return (
@@ -65,10 +54,15 @@ export default function SettingsPage() {
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
                   active === id
                     ? 'bg-blue-500/20 text-blue-400'
+                    : id === 'danger'
+                    ? 'text-zinc-400 hover:bg-zinc-800 hover:text-red-400'
                     : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                } ${id === 'danger' ? (active === id ? '' : 'hover:text-red-400') : ''}`}
+                }`}
               >
-                <Icon size={16} className={id === 'danger' && active !== id ? 'text-red-500/60' : ''} />
+                <Icon
+                  size={16}
+                  className={id === 'danger' && active !== id ? 'text-red-500/60' : ''}
+                />
                 {label}
               </button>
             ))}
@@ -97,9 +91,26 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Content panel */}
+        {/* Content panel — all sections always mounted, hidden via CSS */}
         <div className="flex-1 min-w-0 bg-zinc-900 rounded-2xl border border-zinc-800 p-5">
-          {renderSection()}
+          <div className={active === 'personal' ? 'block' : 'hidden'}>
+            <PersonalInfo />
+          </div>
+          <div className={active === 'account' ? 'block' : 'hidden'}>
+            <AccountSettings onUpdate={updateSettings} />
+          </div>
+          <div className={active === 'trading' ? 'block' : 'hidden'}>
+            <TradingPreferences onUpdate={updateSettings} />
+          </div>
+          <div className={active === 'security' ? 'block' : 'hidden'}>
+            <PasswordSecurity />
+          </div>
+          <div className={active === 'data' ? 'block' : 'hidden'}>
+            <DataExport />
+          </div>
+          <div className={active === 'danger' ? 'block' : 'hidden'}>
+            <DangerZone />
+          </div>
         </div>
       </div>
     </div>
