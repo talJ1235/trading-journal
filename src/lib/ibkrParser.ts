@@ -42,7 +42,7 @@ function parseNum(s: string | undefined): number | null {
 }
 
 function etfOrStock(symbol: string): 'stock' | 'etf' {
-  return KNOWN_ETFS.has(symbol) ? 'etf' : 'stock'
+  return KNOWN_ETFS.has(symbol.trim().toUpperCase()) ? 'etf' : 'stock'
 }
 
 // ─── Format detection ─────────────────────────────────────────────────────────
@@ -143,8 +143,8 @@ function parseTradesReport(allRows: string[][]): IBKRParseResult {
     if (row[0] !== 'Trades') break
     if (row[idxDisc] !== 'Data') { skipped++; continue }
 
-    const symbol = idxSymbol !== -1 ? row[idxSymbol]?.trim() : ''
-    if (!symbol || symbol.toLowerCase().includes('total')) { skipped++; continue }
+    const symbol = (idxSymbol !== -1 ? row[idxSymbol]?.trim() : '').toUpperCase()
+    if (!symbol || symbol.includes('TOTAL')) { skipped++; continue }
 
     if (idxAsset !== -1) {
       const cat = row[idxAsset]?.trim().toLowerCase()
