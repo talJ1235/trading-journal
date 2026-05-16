@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { ClipboardList, BarChart2, TrendingUp, Target, LogOut, Settings } from 'lucide-react'
+import { ClipboardList, BarChart2, TrendingUp, Target, LogOut, Settings, LayoutDashboard } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 
 const navItems = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', prefetch: () => import('../pages/DashboardPage') },
   { to: '/trades', icon: ClipboardList, label: 'Trades', prefetch: () => import('../pages/TradesPage') },
   { to: '/review', icon: BarChart2, label: 'Review', prefetch: () => import('../pages/ReviewPage') },
   { to: '/patterns', icon: TrendingUp, label: 'Patterns', prefetch: () => import('../pages/PatternsPage') },

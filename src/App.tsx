@@ -23,6 +23,7 @@ import PWAInstallPrompt from './components/PWAInstallPrompt'
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const TradesPage = lazy(() => import('./pages/TradesPage'))
 const ReviewPage = lazy(() => import('./pages/ReviewPage'))
 const PatternsPage = lazy(() => import('./pages/PatternsPage'))
@@ -94,13 +95,14 @@ function AppShell() {
         <Suspense fallback={<PageSkeleton />}>
           <AnimatePresence mode="wait" initial={false}>
             <Routes location={location} key={location.pathname}>
-              <Route path="/" element={<Navigate to="/trades" replace />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
               <Route path="/trades" element={<ErrorBoundary><TradesPage /></ErrorBoundary>} />
               <Route path="/review" element={<ErrorBoundary><ReviewPage /></ErrorBoundary>} />
               <Route path="/patterns" element={<ErrorBoundary><PatternsPage /></ErrorBoundary>} />
               <Route path="/goals" element={<ErrorBoundary><GoalsPage /></ErrorBoundary>} />
               <Route path="/settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
-              <Route path="*" element={<Navigate to="/trades" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </AnimatePresence>
         </Suspense>
