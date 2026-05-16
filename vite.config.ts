@@ -41,13 +41,46 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        navigateFallback: '/offline.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/auth\//],
+        // null = SW does not intercept navigations; browser fetches from network naturally.
+        // offline.html is only served by the explicit NetworkFirst fallback below.
+        navigateFallback: null,
+        offlineGoogleAnalytics: false,
         runtimeCaching: [
           {
             // Auth callback routes — never intercept, always go to network
             urlPattern: /\/auth\//,
             handler: 'NetworkOnly',
+          },
+          {
+            // Supabase, Gemini, Finnhub — NetworkOnly (live data, never serve stale)
+            urlPattern: ({ url }: { url: URL }) =>
+              url.hostname.endsWith('.supabase.co') ||
+              url.hostname === 'generativelanguage.googleapis.com' ||
+              url.hostname === 'finnhub.io',
+            handler: 'NetworkOnly',
+          },
+          {
+            // Navigation (HTML) — NetworkFirst with 3s timeout, fallback to cache.
+            // If both network and cache fail, browser shows its own error (not offline.html).
+            urlPattern: ({ request }: { request: Request }) =>
+              request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages-cache',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // Static assets with content hashes — safe to serve from cache indefinitely
+            urlPattern: /\.(?:js|css|woff2|png|svg|ico)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'static-assets-cache',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -66,34 +99,6 @@ export default defineConfig({
               expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
               cacheableResponse: { statuses: [0, 200] },
             },
-          },
-          {
-            // Supabase REST + Auth API — network first, fall back to cache
-            urlPattern: ({ url }: { url: URL }) =>
-              url.hostname.endsWith('.supabase.co'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            // Finnhub market data — network first, short cache for freshness
-            urlPattern: /^https:\/\/finnhub\.io\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'finnhub-cache',
-              networkTimeoutSeconds: 8,
-              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 4 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            // Gemini AI — never cache, always network only
-            urlPattern: /^https:\/\/generativelanguage\.googleapis\.com\/.*/i,
-            handler: 'NetworkOnly',
           },
         ],
       },

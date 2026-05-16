@@ -8,7 +8,6 @@ const updateSW = registerSW({
   onNeedRefresh() {
     void updateSW(true)
   },
-  onOfflineReady() {},
 })
 
 const rootElement = document.getElementById('root')
