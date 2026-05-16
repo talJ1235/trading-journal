@@ -22,7 +22,7 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]['id']
 
 export default function SettingsPage() {
-  const { loading, error, updateSettings } = useSettings()
+  const { error, updateSettings } = useSettings()
   const [active, setActive] = useState<SectionId>('personal')
 
   return (
@@ -84,10 +84,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Content panel — all sections always mounted, hidden via CSS */}
-        <div className="flex-1 min-w-0 bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
-          {loading && (
-            <div className="h-0.5 bg-blue-500 animate-pulse" />
-          )}
+        <div className="flex-1 min-w-0 bg-zinc-900 rounded-2xl border border-zinc-800">
           <div className="p-5">
             <div className={active === 'personal' ? 'block' : 'hidden'}>
               <PersonalInfo />

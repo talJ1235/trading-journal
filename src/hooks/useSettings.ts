@@ -9,7 +9,7 @@ import type { UserSettings } from '../store/settingsStore'
 export function useSettings() {
   const { user } = useAuthStore()
   const { setSettings } = useSettingsStore()
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchSettings = useCallback(async () => {
@@ -59,5 +59,5 @@ export function useSettings() {
     setSettings({ ...current, ...clean })
   }
 
-  return { loading, error, updateSettings }
+  return { error, updateSettings }
 }
