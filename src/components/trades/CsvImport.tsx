@@ -200,13 +200,18 @@ export default function CsvImport({ onSuccess, onClose }: Props) {
 
     try {
       if (toInsert.length > 0) {
-        console.log('[CsvImport] inserting trades payload sample:', JSON.stringify(toInsert[0], null, 2))
-        const { error } = await supabase.from('trades').insert(toInsert)
+        const invalidTypes = toInsert.filter((t) => t.type !== 'stock' && t.type !== 'etf')
+        if (invalidTypes.length > 0) {
+          console.warn('[CsvImport] dropping rows with invalid type:', invalidTypes)
+        }
+        const validInsert = toInsert.filter((t) => t.type === 'stock' || t.type === 'etf')
+        console.log('[CsvImport] inserting', validInsert.length, 'trades, sample:', JSON.stringify(validInsert[0], null, 2))
+        const { error } = await supabase.from('trades').insert(validInsert)
         if (error) {
           console.error('[CsvImport] Supabase error:', error)
           throw error
         }
-        imported = toInsert.length
+        imported = validInsert.length
       }
     } catch (err) {
       const e = err as { message?: string; details?: string; hint?: string; code?: string }

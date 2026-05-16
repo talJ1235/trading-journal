@@ -84,15 +84,17 @@ function parseTxnHistory(allRows: string[][]): IBKRParseResult {
       const rawPnl = txnType === 'Sell' ? parseNum(row[10]) : null
       const pnl = rawPnl === 0 ? null : rawPnl
 
-      rows.push({
+      const parsedRow: IBKRRow = {
         symbol,
         direction: txnType === 'Buy' ? 'long' : 'short',
         entry_date: date,
-        quantity: Math.abs(qty),
+        quantity: Math.abs(qty) || 1,
         entry_price: price,
         pnl,
         type: etfOrStock(symbol),
-      })
+      }
+      if (parsedRow.type !== 'stock' && parsedRow.type !== 'etf') parsedRow.type = 'stock'
+      rows.push(parsedRow)
     } else if (txnType === 'Deposit' || txnType === 'Withdrawal') {
       const amount = parseNum(row[10])
       if (amount == null) { skipped++; continue }
@@ -108,7 +110,8 @@ function parseTxnHistory(allRows: string[][]): IBKRParseResult {
     }
   }
 
-  return { rows, deposits, skipped }
+  const validRows = rows.filter((r) => r.type === 'stock' || r.type === 'etf')
+  return { rows: validRows, deposits, skipped: skipped + (rows.length - validRows.length) }
 }
 
 // ─── Classic Trades report parser (unchanged logic, updated return type) ───────
@@ -168,18 +171,21 @@ function parseTradesReport(allRows: string[][]): IBKRParseResult {
     const pnlNum = pnlRaw ? parseFloat(pnlRaw) : NaN
     const pnl = !isNaN(pnlNum) && pnlNum !== 0 ? pnlNum : null
 
-    rows.push({
+    const parsedRow: IBKRRow = {
       symbol,
       direction,
       entry_date: stripTime(dateRaw),
-      quantity: Math.abs(Math.round(qty)),
+      quantity: Math.abs(Math.round(qty)) || 1,
       entry_price: price,
       pnl,
       type: etfOrStock(symbol),
-    })
+    }
+    if (parsedRow.type !== 'stock' && parsedRow.type !== 'etf') parsedRow.type = 'stock'
+    rows.push(parsedRow)
   }
 
-  return { rows, deposits: [], skipped }
+  const validRows = rows.filter((r) => r.type === 'stock' || r.type === 'etf')
+  return { rows: validRows, deposits: [], skipped: skipped + (rows.length - validRows.length) }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
