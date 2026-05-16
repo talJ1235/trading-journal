@@ -25,16 +25,6 @@ export default function SettingsPage() {
   const { loading, error, updateSettings } = useSettings()
   const [active, setActive] = useState<SectionId>('personal')
 
-  if (loading) {
-    return (
-      <div className="p-4 md:p-8 space-y-4 max-w-3xl animate-pulse">
-        <div className="h-7 bg-zinc-800 rounded-xl w-28" />
-        <div className="h-48 bg-zinc-800 rounded-2xl" />
-        <div className="h-32 bg-zinc-800 rounded-2xl" />
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen p-4 md:p-8">
       <h1 className="text-xl font-bold text-white mb-6">Settings</h1>
@@ -94,27 +84,32 @@ export default function SettingsPage() {
         </div>
 
         {/* Content panel — all sections always mounted, hidden via CSS */}
-        <div className="flex-1 min-w-0 bg-zinc-900 rounded-2xl border border-zinc-800 p-5">
-          <div className={active === 'personal' ? 'block' : 'hidden'}>
-            <PersonalInfo />
-          </div>
-          <div className={active === 'account' ? 'block' : 'hidden'}>
-            <AccountSettings onUpdate={updateSettings} />
-          </div>
-          <div className={active === 'trading' ? 'block' : 'hidden'}>
-            <TradingPreferences onUpdate={updateSettings} />
-          </div>
-          <div className={active === 'security' ? 'block' : 'hidden'}>
-            <PasswordSecurity />
-          </div>
-          <div className={active === 'activity' ? 'block' : 'hidden'}>
-            <SecurityActivity />
-          </div>
-          <div className={active === 'data' ? 'block' : 'hidden'}>
-            <DataExport />
-          </div>
-          <div className={active === 'danger' ? 'block' : 'hidden'}>
-            <DangerZone />
+        <div className="flex-1 min-w-0 bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
+          {loading && (
+            <div className="h-0.5 bg-blue-500 animate-pulse" />
+          )}
+          <div className="p-5">
+            <div className={active === 'personal' ? 'block' : 'hidden'}>
+              <PersonalInfo />
+            </div>
+            <div className={active === 'account' ? 'block' : 'hidden'}>
+              <AccountSettings onUpdate={updateSettings} />
+            </div>
+            <div className={active === 'trading' ? 'block' : 'hidden'}>
+              <TradingPreferences onUpdate={updateSettings} />
+            </div>
+            <div className={active === 'security' ? 'block' : 'hidden'}>
+              <PasswordSecurity />
+            </div>
+            <div className={active === 'activity' ? 'block' : 'hidden'}>
+              <SecurityActivity />
+            </div>
+            <div className={active === 'data' ? 'block' : 'hidden'}>
+              <DataExport />
+            </div>
+            <div className={active === 'danger' ? 'block' : 'hidden'}>
+              <DangerZone />
+            </div>
           </div>
         </div>
       </div>

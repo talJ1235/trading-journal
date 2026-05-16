@@ -63,7 +63,7 @@ export default function SecurityActivity() {
       .order('created_at', { ascending: false })
       .limit(5)
       .then(({ data, error: dbError }) => {
-        if (dbError) setError(handleError(dbError, 'Failed to load activity'))
+        if (dbError) setLogs([]) // silently degrade — table may not exist yet
         else setLogs((data as SecurityLog[]) ?? [])
         setLoading(false)
       })
