@@ -10,6 +10,9 @@ export interface UserSettings {
   show_micha_questions: boolean
   default_asset_type: 'stock' | 'etf'
   default_position_size: number | null
+  trading_goal: string | null
+  trading_style: string | null
+  onboarding_completed: boolean
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -18,6 +21,9 @@ export const DEFAULT_SETTINGS: UserSettings = {
   show_micha_questions: true,
   default_asset_type: 'stock',
   default_position_size: null,
+  trading_goal: null,
+  trading_style: null,
+  onboarding_completed: false,
 }
 
 export function formatCurrency(amount: number, currency: Currency | string): string {
@@ -41,10 +47,14 @@ export function formatPnlCurrency(amount: number | null | undefined, currency: C
 
 interface SettingsState {
   settings: UserSettings
+  onboardingCompleted: boolean | null
   setSettings: (s: UserSettings) => void
+  setOnboardingCompleted: (v: boolean | null) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   settings: DEFAULT_SETTINGS,
+  onboardingCompleted: null,
   setSettings: (settings) => set({ settings }),
+  setOnboardingCompleted: (onboardingCompleted) => set({ onboardingCompleted }),
 }))

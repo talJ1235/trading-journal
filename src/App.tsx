@@ -1,8 +1,10 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/authStore'
+import { useSettingsStore } from './store/settingsStore'
+import { useSettings } from './hooks/useSettings'
 import {
   secureStore,
   secureRetrieve,
@@ -20,6 +22,7 @@ import PWAInstallPrompt from './components/PWAInstallPrompt'
 
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
 const TradesPage = lazy(() => import('./pages/TradesPage'))
 const ReviewPage = lazy(() => import('./pages/ReviewPage'))
 const PatternsPage = lazy(() => import('./pages/PatternsPage'))
@@ -51,7 +54,10 @@ function ScrollToTop() {
 
 function AppShell() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { setSession } = useAuthStore()
+  const { onboardingCompleted } = useSettingsStore()
+  useSettings() // trigger settings fetch (populates onboardingCompleted)
 
   // Validate session and detect suspicious activity on every route change
   useEffect(() => {
@@ -67,6 +73,18 @@ function AppShell() {
       }
     }).catch(() => { /* network error — stay logged in */ })
   }, [location.pathname, setSession])
+
+  // Redirect new users to onboarding
+  useEffect(() => {
+    if (onboardingCompleted === false) {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [onboardingCompleted, navigate])
+
+  // While settings are loading (null), show a full-screen loader
+  if (onboardingCompleted !== true) {
+    return <LoadingScreen />
+  }
 
   return (
     <div className="flex h-screen bg-[#0F0F0F]">
@@ -163,6 +181,14 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <OnboardingPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/*"
             element={
