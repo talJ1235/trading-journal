@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Trash2 } from 'lucide-react'
+import { ChevronDown, Trash2, X } from 'lucide-react'
 import type { Trade } from '../../types'
 import { formatPct, emotionEmoji, formatDate } from '../../lib/utils'
 import { useSettingsStore, formatPnlCurrency } from '../../store/settingsStore'
+import { supabase } from '../../lib/supabase'
 import TagBadge from './TagBadge'
 
 interface Props {
@@ -22,10 +23,44 @@ function FollowedPlanBadge({ value }: { value: Trade['followed_plan'] }) {
   return <span className={`text-xs font-medium ${styles[value]}`}>{labels[value]}</span>
 }
 
+function ConfidenceBadge({ value }: { value: number | null | undefined }) {
+  if (!value) return null
+  const cfg =
+    value <= 2
+      ? { icon: '🔴', label: 'Low confidence', color: 'text-red-400' }
+      : value === 3
+      ? { icon: '🟡', label: 'Neutral', color: 'text-yellow-400' }
+      : { icon: '🟢', label: 'High confidence', color: 'text-green-400' }
+  return (
+    <span className={`text-xs font-medium ${cfg.color}`}>
+      {cfg.icon} {cfg.label}
+    </span>
+  )
+}
+
 export default function TradeCard({ trade, onDelete }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const { settings } = useSettingsStore()
+
+  useEffect(() => {
+    if (!expanded || !trade.screenshot_url || screenshotUrl) return
+    supabase.storage
+      .from('trade-screenshots')
+      .createSignedUrl(trade.screenshot_url, 3600)
+      .then(({ data }) => { if (data?.signedUrl) setScreenshotUrl(data.signedUrl) })
+  }, [expanded, trade.screenshot_url, screenshotUrl])
+
+  const closeLightbox = useCallback(() => setLightboxOpen(false), [])
+
+  useEffect(() => {
+    if (!lightboxOpen) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeLightbox() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightboxOpen, closeLightbox])
 
   const pnlPositive = trade.pnl != null && trade.pnl > 0
   const pnlColor = trade.pnl == null ? 'text-zinc-400' : pnlPositive ? 'text-green-500' : 'text-red-500'
@@ -144,6 +179,27 @@ export default function TradeCard({ trade, onDelete }: Props) {
                 </div>
               )}
 
+              {(trade.confidence != null || trade.risk_reward_ratio != null) && (
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  {trade.risk_reward_ratio != null && (
+                    <span className="text-zinc-400">
+                      R:R{' '}
+                      <span className="font-mono text-white">1:{trade.risk_reward_ratio.toFixed(2)}</span>
+                    </span>
+                  )}
+                  <ConfidenceBadge value={trade.confidence} />
+                </div>
+              )}
+
+              {trade.screenshot_url && screenshotUrl && (
+                <div
+                  className="rounded-xl overflow-hidden border border-zinc-700 cursor-pointer mt-1"
+                  onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}
+                >
+                  <img src={screenshotUrl} alt="Chart screenshot" className="w-full object-cover max-h-40" />
+                </div>
+              )}
+
               <button
                 onClick={handleDelete}
                 disabled={deleting}
@@ -156,6 +212,27 @@ export default function TradeCard({ trade, onDelete }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Lightbox */}
+      {lightboxOpen && screenshotUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={closeLightbox}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            onClick={closeLightbox}
+          >
+            <X size={28} />
+          </button>
+          <img
+            src={screenshotUrl}
+            alt="Chart screenshot"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }

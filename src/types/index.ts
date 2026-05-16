@@ -20,6 +20,9 @@ export interface Trade {
   tag?: 'planned' | 'impulse' | 'emotional_exit' | 'surgical' | 'news_play' | null
   pnl?: number | null
   notes?: string | null
+  risk_reward_ratio?: number | null
+  confidence?: number | null
+  screenshot_url?: string | null
   created_at: string
 }
 

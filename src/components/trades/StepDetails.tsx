@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { FormValues } from './formTypes'
+import RRCalculator from './RRCalculator'
 
 interface Props {
   values: FormValues
@@ -159,6 +160,14 @@ export default function StepDetails({ values, errors, onChange }: Props) {
           />
         </Field>
       </div>
+
+      <RRCalculator
+        direction={values.direction}
+        entryPrice={values.entry_price}
+        plannedTarget={values.planned_target}
+        plannedStop={values.planned_stop}
+        quantity={values.quantity}
+      />
 
       {/* Collapsible micha.stocks pre-trade questions */}
       <div className="bg-zinc-800/50 rounded-xl border border-zinc-700/50">

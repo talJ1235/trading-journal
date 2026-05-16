@@ -27,6 +27,13 @@ const stepVariants = {
   exit: (dir: number) => ({ x: dir > 0 ? '-60%' : '60%', opacity: 0 }),
 }
 
+function calcRR(direction: 'long' | 'short', ep: number, pt: number, ps: number, qty: number): number | null {
+  const risk = direction === 'long' ? (ep - ps) * qty : (ps - ep) * qty
+  const reward = direction === 'long' ? (pt - ep) * qty : (ep - pt) * qty
+  if (risk <= 0 || reward <= 0) return null
+  return parseFloat((reward / risk).toFixed(2))
+}
+
 function buildTradeInput(values: FormValues): TradeInput {
   const ep = parseFloat(values.entry_price)
   const qty = parseFloat(values.quantity)
@@ -36,6 +43,10 @@ function buildTradeInput(values: FormValues): TradeInput {
   const pnl = values.still_open
     ? null
     : calcPnl(values.direction, values.entry_price, values.exit_price, values.quantity)
+
+  const rr = (!isNaN(ep) && !isNaN(pt) && !isNaN(ps) && !isNaN(qty))
+    ? calcRR(values.direction, ep, pt, ps, qty)
+    : null
 
   return {
     symbol: values.symbol.trim().toUpperCase(),
@@ -56,6 +67,9 @@ function buildTradeInput(values: FormValues): TradeInput {
     lesson: values.lesson.trim() || null,
     notes: values.notes.trim() || null,
     pnl,
+    risk_reward_ratio: rr,
+    confidence: values.confidence,
+    screenshot_url: values.screenshot_url,
   }
 }
 

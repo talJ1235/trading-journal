@@ -4,9 +4,11 @@ import EquityCurve from '../components/patterns/EquityCurve'
 import WinRateByTag from '../components/patterns/WinRateByTag'
 import WinRateByDay from '../components/patterns/WinRateByDay'
 import EmotionVsResults from '../components/patterns/EmotionVsResults'
+import ConfidenceVsResults from '../components/patterns/ConfidenceVsResults'
 import MonthlyPerformance from '../components/patterns/MonthlyPerformance'
 import SP500Comparison from '../components/patterns/SP500Comparison'
 import Insights from '../components/patterns/Insights'
+import PnlCalendar from '../components/patterns/PnlCalendar'
 import { usePatterns } from '../hooks/usePatterns'
 import { useTradesStore } from '../store/tradesStore'
 
@@ -56,10 +58,12 @@ export default function PatternsPage() {
   return (
     <PageTransition>
       <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4 pb-24 md:pb-8">
+        <PnlCalendar trades={trades} />
         <EquityCurve data={patterns.equityCurve} />
         <WinRateByTag data={patterns.winRateByTag} />
         <WinRateByDay data={patterns.winRateByDay} />
         <EmotionVsResults data={patterns.avgPnlByEmotion} />
+        <ConfidenceVsResults data={patterns.confidenceVsResults} />
         <MonthlyPerformance data={patterns.monthlyPerformance} />
         <SP500Comparison
           weekStart={weekStart}

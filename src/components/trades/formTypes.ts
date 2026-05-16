@@ -20,6 +20,8 @@ export interface FormValues {
   followed_plan: 'yes' | 'partial' | 'no' | null
   lesson: string
   notes: string
+  confidence: number | null
+  screenshot_url: string | null
 }
 
 export const initialFormValues: FormValues = {
@@ -41,6 +43,8 @@ export const initialFormValues: FormValues = {
   followed_plan: null,
   lesson: '',
   notes: '',
+  confidence: null,
+  screenshot_url: null,
 }
 
 export function validateStep1(values: FormValues): Record<string, string> {

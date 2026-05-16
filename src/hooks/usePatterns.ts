@@ -10,6 +10,8 @@ export interface EmotionAvgItem { emotion: number; label: string; avgPnl: number
 export interface SymbolStat { symbol: string; totalPnl: number; trades: number }
 export interface MonthlyPerfItem { month: string; sortKey: string; pnl: number; trades: number; winRate: number }
 
+export interface ConfidenceVsResultsItem { confidence: number; avgPnl: number; winRate: number; count: number }
+
 export interface PatternStats {
   equityCurve: EquityCurvePoint[]
   winRateByTag: WinRateByTagItem[]
@@ -18,6 +20,7 @@ export interface PatternStats {
   bestSymbol: SymbolStat | null
   worstSymbol: SymbolStat | null
   monthlyPerformance: MonthlyPerfItem[]
+  confidenceVsResults: ConfidenceVsResultsItem[]
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -109,7 +112,23 @@ function computePatterns(trades: Trade[]): PatternStats {
       return { month, sortKey: key, pnl: parseFloat(pnl.toFixed(2)), trades: total, winRate: total ? (wins / total) * 100 : 0 }
     })
 
-  return { equityCurve, winRateByTag, winRateByDay, avgPnlByEmotion, bestSymbol, worstSymbol, monthlyPerformance }
+  // ── Confidence vs results ──
+  const confMap = new Map<number, { sum: number; wins: number; count: number }>()
+  for (const t of trades) {
+    if (t.confidence == null || t.pnl == null) continue
+    const e = confMap.get(t.confidence) ?? { sum: 0, wins: 0, count: 0 }
+    e.sum += t.pnl; e.count++
+    if (t.pnl > 0) e.wins++
+    confMap.set(t.confidence, e)
+  }
+  const confidenceVsResults: ConfidenceVsResultsItem[] = [1, 2, 3, 4, 5]
+    .filter((c) => confMap.has(c))
+    .map((confidence) => {
+      const { sum, wins, count } = confMap.get(confidence)!
+      return { confidence, avgPnl: sum / count, winRate: count ? (wins / count) * 100 : 0, count }
+    })
+
+  return { equityCurve, winRateByTag, winRateByDay, avgPnlByEmotion, bestSymbol, worstSymbol, monthlyPerformance, confidenceVsResults }
 }
 
 export function usePatterns(): PatternStats {
