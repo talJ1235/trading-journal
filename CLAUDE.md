@@ -39,6 +39,13 @@ src/
 
 ## Git Workflow
 After completing ANY task that modifies files:
+
+Before every git push, run these checks and fix all errors:
+1. Run `tsc --noEmit` — fix all TypeScript errors
+2. Run `npm run build` — fix all build errors
+Only push after both commands pass with zero errors.
+
+Then commit and push:
 1. Run `git add .`
 2. Run `git commit -m "brief description of what was changed"`
 3. Run `git push`
