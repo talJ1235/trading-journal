@@ -8,6 +8,7 @@ import TradeCard from './TradeCard'
 import TradeFilters from './TradeFilters'
 import TradeSkeleton from './TradeSkeleton'
 import OpenPositionCard from './OpenPositionCard'
+import type { GroupedPosition } from './OpenPositionCard'
 
 interface FilterState {
   typeFilter: 'all' | 'stock' | 'etf'
@@ -43,7 +44,42 @@ export default function TradeHistory({ onAddTrade, onDelete, onImportCsv }: Prop
   })
 
   const openPositions = useMemo(() => trades.filter((t) => !t.exit_date), [trades])
-  const openSymbols = useMemo(() => openPositions.map((t) => t.symbol), [openPositions])
+
+  const groupedPositions = useMemo((): GroupedPosition[] => {
+    const acc: Record<string, GroupedPosition> = {}
+    for (const trade of openPositions) {
+      // Group by symbol + direction so long and short are kept separate
+      const key = `${trade.symbol}|${trade.direction}`
+      if (!acc[key]) {
+        acc[key] = {
+          symbol: trade.symbol,
+          type: trade.type,
+          direction: trade.direction,
+          trades: [],
+          totalQuantity: 0,
+          avgEntryPrice: 0,
+          totalCost: 0,
+          earliestDate: trade.entry_date,
+        }
+      }
+      const pos = acc[key]
+      pos.trades.push(trade)
+      pos.totalQuantity += trade.quantity ?? 0
+      pos.totalCost += (trade.entry_price ?? 0) * (trade.quantity ?? 0)
+      if (trade.entry_date < pos.earliestDate) pos.earliestDate = trade.entry_date
+    }
+    // Compute weighted average entry price
+    for (const pos of Object.values(acc)) {
+      pos.avgEntryPrice = pos.totalQuantity > 0 ? pos.totalCost / pos.totalQuantity : 0
+    }
+    return Object.values(acc)
+  }, [openPositions])
+
+  // Deduplicate symbols for price fetching
+  const openSymbols = useMemo(
+    () => [...new Set(groupedPositions.map((p) => p.symbol))],
+    [groupedPositions]
+  )
   const { prices, refresh: refreshPrices, lastUpdated } = useLivePrices(openSymbols)
 
   const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
@@ -55,11 +91,11 @@ export default function TradeHistory({ onAddTrade, onDelete, onImportCsv }: Prop
   return (
     <div className="relative">
       {/* Open Positions */}
-      {openPositions.length > 0 && (
+      {groupedPositions.length > 0 && (
         <div className="mb-5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-zinc-400 uppercase tracking-wide">
-              Open Positions ({openPositions.length})
+              Open Positions ({groupedPositions.length})
             </span>
             <button
               onClick={() => void refreshPrices()}
@@ -73,11 +109,11 @@ export default function TradeHistory({ onAddTrade, onDelete, onImportCsv }: Prop
             </button>
           </div>
           <div className="space-y-2">
-            {openPositions.map((trade) => (
+            {groupedPositions.map((position) => (
               <OpenPositionCard
-                key={trade.id}
-                trade={trade}
-                livePrice={prices[trade.symbol]}
+                key={`${position.symbol}|${position.direction}`}
+                position={position}
+                livePrice={prices[position.symbol]}
               />
             ))}
           </div>
