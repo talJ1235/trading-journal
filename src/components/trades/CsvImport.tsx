@@ -200,12 +200,18 @@ export default function CsvImport({ onSuccess, onClose }: Props) {
 
     try {
       if (toInsert.length > 0) {
+        console.log('[CsvImport] inserting trades payload sample:', JSON.stringify(toInsert[0], null, 2))
         const { error } = await supabase.from('trades').insert(toInsert)
-        if (error) throw error
+        if (error) {
+          console.error('[CsvImport] Supabase error:', error)
+          throw error
+        }
         imported = toInsert.length
       }
     } catch (err) {
-      tradeError = err instanceof Error ? err.message : 'Failed to import trades'
+      const e = err as { message?: string; details?: string; hint?: string; code?: string }
+      const parts = [e.message, e.details, e.hint].filter(Boolean)
+      tradeError = parts.join(' — ') || 'Failed to import trades'
     }
 
     // 2. Import deposits (if checkbox checked)
