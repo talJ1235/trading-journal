@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 import { useTradesStore } from '../store/tradesStore'
 import { getAutoTag } from '../lib/utils'
-import { sanitizeText, sanitizeMaybe } from '../lib/sanitize'
+import { sanitize, sanitizeMaybe } from '../lib/sanitize'
+import { handleError } from '../lib/errorHandler'
 import type { Trade } from '../types'
 
 export type TradeInput = Omit<Trade, 'id' | 'created_at' | 'user_id' | 'tag'>
@@ -27,7 +28,7 @@ export function useTrades() {
       if (error) throw error
       setTrades(data ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load trades')
+      setError(handleError(err, 'Failed to load trades'))
     } finally {
       setLoading(false)
     }
@@ -39,7 +40,7 @@ export function useTrades() {
 
   const sanitizeInput = (input: Partial<TradeInput>): Partial<TradeInput> => ({
     ...input,
-    symbol: input.symbol != null ? sanitizeText(input.symbol, 10) : input.symbol,
+    symbol: input.symbol != null ? sanitize(input.symbol, 10) : input.symbol,
     notes: sanitizeMaybe(input.notes, 500) as string | null | undefined,
     lesson: sanitizeMaybe(input.lesson, 500) as string | null | undefined,
     signal: sanitizeMaybe(input.signal, 200) as string | null | undefined,

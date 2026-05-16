@@ -1,4 +1,6 @@
-const apiKey: string | undefined = import.meta.env.VITE_FINNHUB_API_KEY
+const rawKey: string | undefined = import.meta.env.VITE_FINNHUB_API_KEY
+const isPlaceholder = !rawKey || rawKey === 'your_key_here' || rawKey.startsWith('YOUR_')
+const apiKey = isPlaceholder ? undefined : rawKey
 
 export async function getLivePrice(symbol: string): Promise<number | null> {
   if (!apiKey) return null

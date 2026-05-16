@@ -2,31 +2,56 @@ import { useState, useEffect, useCallback } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
+import { simpleHash, secureStore, secureRetrieve, logSecurityEvent } from '../lib/sessionSecurity'
 import LoadingScreen from '../components/LoadingScreen'
 
-// ─── Rate limiter ────────────────────────────────────────────────────────────
-const FAIL_KEY = 'login_fails'
-const MAX_FAILS = 5
-const LOCK_MS = 15 * 60 * 1000
+// ─── Progressive rate limiter (per-email) ────────────────────────────────────
+const LOCK_TIERS = [
+  { attempts: 5,  duration: 15 * 60 * 1000 },        // 15 minutes
+  { attempts: 10, duration: 60 * 60 * 1000 },         // 1 hour
+  { attempts: 15, duration: 24 * 60 * 60 * 1000 },    // 24 hours
+]
 
 interface FailRecord { count: number; lockedUntil: number }
 
-function getRecord(): FailRecord {
-  try { return JSON.parse(localStorage.getItem(FAIL_KEY) ?? '{}') as FailRecord }
+function emailKey(email: string): string {
+  return `lf_${simpleHash(email.toLowerCase().trim())}`
+}
+
+function getRecord(email: string): FailRecord {
+  if (!email.trim()) return { count: 0, lockedUntil: 0 }
+  const raw = secureRetrieve(emailKey(email))
+  if (!raw) return { count: 0, lockedUntil: 0 }
+  try { return JSON.parse(raw) as FailRecord }
   catch { return { count: 0, lockedUntil: 0 } }
 }
-function checkLocked(): boolean { return Date.now() < (getRecord().lockedUntil ?? 0) }
-function lockSecs(): number { return Math.max(0, Math.ceil(((getRecord().lockedUntil ?? 0) - Date.now()) / 1000)) }
-function recordFail(): void {
-  const rec = getRecord()
-  const count = (rec.count ?? 0) + 1
-  const lockedUntil = count >= MAX_FAILS ? Date.now() + LOCK_MS : (rec.lockedUntil ?? 0)
-  localStorage.setItem(FAIL_KEY, JSON.stringify({ count, lockedUntil }))
+
+function isLocked(rec: FailRecord): boolean { return Date.now() < (rec.lockedUntil ?? 0) }
+function lockSecs(rec: FailRecord): number { return Math.max(0, Math.ceil((rec.lockedUntil - Date.now()) / 1000)) }
+
+function recordFail(email: string): FailRecord {
+  const rec = getRecord(email)
+  const count = rec.count + 1
+  const tier = [...LOCK_TIERS].reverse().find((t) => count >= t.attempts)
+  const lockedUntil = tier ? Date.now() + tier.duration : 0
+  const newRec = { count, lockedUntil }
+  secureStore(emailKey(email), JSON.stringify(newRec))
+  return newRec
 }
-function clearFails(): void { localStorage.removeItem(FAIL_KEY) }
+
+function clearFails(email: string): void { localStorage.removeItem(emailKey(email)) }
+
+function attemptsRemaining(count: number): number {
+  const nextTier = LOCK_TIERS.find((t) => t.attempts > count)
+  return nextTier ? nextTier.attempts - count : 0
+}
+
 function fmtSecs(s: number): string {
-  const m = Math.floor(s / 60)
-  return `${m}:${(s % 60).toString().padStart(2, '0')}`
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
+  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 // ─── Google SVG logo ─────────────────────────────────────────────────────────
@@ -53,15 +78,25 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(searchParams.get('error'))
 
-  const [locked, setLocked] = useState(checkLocked)
-  const [countdown, setCountdown] = useState(lockSecs)
+  const [locked, setLocked] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const [remaining, setRemaining] = useState<number | null>(null)
+
+  // Recompute lock status whenever email changes
+  useEffect(() => {
+    const rec = getRecord(email)
+    const lock = isLocked(rec)
+    setLocked(lock)
+    setCountdown(lock ? lockSecs(rec) : 0)
+    setRemaining((!lock && rec.count > 0) ? attemptsRemaining(rec.count) : null)
+  }, [email])
 
   // Countdown tick when locked
   useEffect(() => {
     if (!locked) return
     const t = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) { setLocked(false); clearInterval(t); return 0 }
+      setCountdown((prev) => {
+        if (prev <= 1) { setLocked(false); setRemaining(null); clearInterval(t); return 0 }
         return prev - 1
       })
     }, 1000)
@@ -76,33 +111,42 @@ export default function LoginPage() {
       options: { redirectTo: window.location.origin + '/auth/callback' },
     })
     if (authError) {
-      setError(authError.message)
+      setError('Sign-in failed. Please try again.')
       setGoogleLoading(false)
     }
-    // On success browser navigates away — no need to reset loading
   }, [])
 
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    if (locked) return
+    const rec = getRecord(email)
+    if (isLocked(rec)) {
+      setLocked(true)
+      setCountdown(lockSecs(rec))
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) throw authError
-      clearFails()
+      clearFails(email)
+      void logSecurityEvent('login')
       navigate('/trades')
-    } catch (err) {
-      recordFail()
-      if (checkLocked()) {
+    } catch {
+      const newRec = recordFail(email)
+      void logSecurityEvent('failed_login', { email_hash: emailKey(email) })
+      if (isLocked(newRec)) {
         setLocked(true)
-        setCountdown(lockSecs())
+        setCountdown(lockSecs(newRec))
+        setRemaining(null)
+      } else {
+        setRemaining(attemptsRemaining(newRec.count))
+        setError('Incorrect email or password.')
       }
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.')
     } finally {
       setSubmitting(false)
     }
-  }, [locked, email, password, navigate])
+  }, [email, password, navigate])
 
   if (loading) return <LoadingScreen />
   if (user) return <Navigate to="/trades" replace />
@@ -122,7 +166,7 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-[#1A1A1A] rounded-2xl p-6 border border-[#2A2A2A] space-y-4">
-          {/* Error / lockout banner */}
+          {/* Lockout banner */}
           {locked ? (
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-2.5 text-yellow-400 text-sm text-center">
               Too many attempts. Try again in{' '}
@@ -179,6 +223,11 @@ export default function LoginPage() {
                 className={inputCls}
                 placeholder="••••••••"
               />
+              {remaining !== null && remaining <= 3 && (
+                <p className="text-xs text-yellow-400 mt-1.5">
+                  {remaining} attempt{remaining !== 1 ? 's' : ''} remaining before lockout
+                </p>
+              )}
             </div>
 
             <button

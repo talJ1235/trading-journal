@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { User, SlidersHorizontal, BarChart2, Shield, Download, AlertTriangle } from 'lucide-react'
+import { User, SlidersHorizontal, BarChart2, Shield, Activity, Download, AlertTriangle } from 'lucide-react'
 import { useSettings } from '../hooks/useSettings'
 import PersonalInfo from '../components/settings/PersonalInfo'
 import AccountSettings from '../components/settings/AccountSettings'
 import TradingPreferences from '../components/settings/TradingPreferences'
 import PasswordSecurity from '../components/settings/PasswordSecurity'
+import SecurityActivity from '../components/settings/SecurityActivity'
 import DataExport from '../components/settings/DataExport'
 import DangerZone from '../components/settings/DangerZone'
 
@@ -13,6 +14,7 @@ const SECTIONS = [
   { id: 'account', label: 'Account', icon: SlidersHorizontal },
   { id: 'trading', label: 'Trading', icon: BarChart2 },
   { id: 'security', label: 'Security', icon: Shield },
+  { id: 'activity', label: 'Security Activity', icon: Activity },
   { id: 'data', label: 'Data & Export', icon: Download },
   { id: 'danger', label: 'Danger Zone', icon: AlertTriangle },
 ] as const
@@ -104,6 +106,9 @@ export default function SettingsPage() {
           </div>
           <div className={active === 'security' ? 'block' : 'hidden'}>
             <PasswordSecurity />
+          </div>
+          <div className={active === 'activity' ? 'block' : 'hidden'}>
+            <SecurityActivity />
           </div>
           <div className={active === 'data' ? 'block' : 'hidden'}>
             <DataExport />

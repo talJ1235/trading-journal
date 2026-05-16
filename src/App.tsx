@@ -3,6 +3,15 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/authStore'
+import {
+  secureStore,
+  secureRetrieve,
+  storeFingerprint,
+  isFingerprintMismatch,
+  validateSession,
+  logSecurityEvent,
+  detectSuspiciousActivity,
+} from './lib/sessionSecurity'
 import ProtectedRoute from './components/ProtectedRoute'
 import Navigation from './components/Navigation'
 import LoadingScreen from './components/LoadingScreen'
@@ -42,11 +51,26 @@ function ScrollToTop() {
 
 function AppShell() {
   const location = useLocation()
+  const { setSession } = useAuthStore()
+
+  // Validate session and detect suspicious activity on every route change
+  useEffect(() => {
+    const { isSuspicious, reason } = detectSuspiciousActivity()
+    if (isSuspicious) {
+      void logSecurityEvent('suspicious_activity', { reason: reason ?? 'unknown' })
+    }
+
+    validateSession().then((valid) => {
+      if (!valid) {
+        void supabase.auth.signOut()
+        setSession(null)
+      }
+    }).catch(() => { /* network error — stay logged in */ })
+  }, [location.pathname, setSession])
 
   return (
     <div className="flex h-screen bg-[#0F0F0F]">
       <Navigation />
-      {/* md:ml-60 = sidebar width; pb-nav-safe = 60px mobile nav + iOS safe area */}
       <main className="flex-1 md:ml-60 overflow-y-auto pb-nav-safe md:pb-0">
         <ScrollToTop />
         <Suspense fallback={<PageSkeleton />}>
@@ -70,25 +94,38 @@ function AppShell() {
 
 export default function App() {
   const { setSession, setLoading } = useAuthStore()
-  const [showExpiredToast, setShowExpiredToast] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!showExpiredToast) return
-    const t = setTimeout(() => setShowExpiredToast(false), 5000)
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 5000)
     return () => clearTimeout(t)
-  }, [showExpiredToast])
+  }, [toast])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        const start = parseInt(localStorage.getItem(SESSION_KEY) ?? '0', 10)
+        // Fingerprint integrity check
+        if (isFingerprintMismatch()) {
+          void supabase.auth.signOut()
+          localStorage.removeItem(SESSION_KEY)
+          setSession(null)
+          setToast('Security check failed. Please sign in again.')
+          setLoading(false)
+          return
+        }
+
+        // 7-day session age check
+        const startRaw = secureRetrieve(SESSION_KEY)
+        const start = startRaw ? parseInt(startRaw, 10) : 0
         if (start && Date.now() - start > MAX_SESSION_AGE) {
           void supabase.auth.signOut()
           localStorage.removeItem(SESSION_KEY)
           setSession(null)
-          setShowExpiredToast(true)
+          void logSecurityEvent('session_expired')
+          setToast('Session expired. Please sign in again.')
         } else {
-          if (!start) localStorage.setItem(SESSION_KEY, String(Date.now()))
+          if (!start) secureStore(SESSION_KEY, String(Date.now()))
           setSession(session)
         }
       } else {
@@ -101,11 +138,17 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN') {
-        if (!localStorage.getItem(SESSION_KEY)) {
-          localStorage.setItem(SESSION_KEY, String(Date.now()))
+        if (!secureRetrieve(SESSION_KEY)) {
+          secureStore(SESSION_KEY, String(Date.now()))
         }
+        // Store browser fingerprint on login
+        storeFingerprint()
+        void logSecurityEvent('login')
       } else if (event === 'SIGNED_OUT') {
         localStorage.removeItem(SESSION_KEY)
+        void logSecurityEvent('logout')
+      } else if (event === 'TOKEN_REFRESHED') {
+        // Silent token refresh — update store, no toast
       }
       setSession(session)
       setLoading(false)
@@ -131,9 +174,9 @@ export default function App() {
         </Routes>
       </Suspense>
 
-      {/* Session expired toast */}
+      {/* Security / session toast */}
       <AnimatePresence>
-        {showExpiredToast && (
+        {toast && (
           <motion.div
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -141,7 +184,7 @@ export default function App() {
             transition={{ type: 'spring', damping: 22, stiffness: 300 }}
             className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-sm text-zinc-200 shadow-2xl whitespace-nowrap"
           >
-            Session expired. Please sign in again.
+            {toast}
           </motion.div>
         )}
       </AnimatePresence>

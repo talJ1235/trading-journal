@@ -55,7 +55,8 @@ export async function generateWeeklyReview(
   stats: WeeklyStats
 ): Promise<string> {
   const apiKey: string | undefined = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) return 'Gemini API key not configured (VITE_GEMINI_API_KEY).'
+  const isPlaceholder = !apiKey || apiKey === 'your_key_here' || apiKey.startsWith('YOUR_')
+  if (isPlaceholder) return 'Gemini API key not configured (VITE_GEMINI_API_KEY).'
 
   const tradesText = trades
     .map(

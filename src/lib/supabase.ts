@@ -10,6 +10,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
+// Safety check — service role key must never be in the client bundle
+if (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('SECURITY: Service role key is exposed in the client bundle! Remove VITE_SUPABASE_SERVICE_ROLE_KEY immediately.')
+}
+
 // Full Database type satisfying Supabase v2 GenericSchema constraint
 export interface Database {
   public: {

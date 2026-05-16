@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 import { useTradesStore } from '../store/tradesStore'
 import { generateWeeklyReview } from '../lib/gemini'
+import { handleError } from '../lib/errorHandler'
 import type { WeeklyStats } from '../lib/gemini'
 import type { WeeklyReview, Trade } from '../types'
 
@@ -65,7 +66,7 @@ export function useReviews() {
       if (dbError) throw dbError
       setReviews(data ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load reviews')
+      setError(handleError(err, 'Failed to load reviews'))
     } finally {
       setLoading(false)
     }
@@ -86,7 +87,6 @@ export function useReviews() {
       const stats = calcWeekStats(weekTrades, weekStart, weekEnd)
       const aiReview = await generateWeeklyReview(weekTrades, stats)
 
-      // Remove any existing review for this week before inserting
       await supabase
         .from('weekly_reviews')
         .delete()
@@ -108,8 +108,7 @@ export function useReviews() {
         setReviews((prev) => [data, ...prev.filter((r) => r.week_start !== weekStart)])
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to generate review'
-      setError(msg)
+      setError(handleError(err, 'Failed to generate review'))
       throw err
     } finally {
       setGenerating(false)

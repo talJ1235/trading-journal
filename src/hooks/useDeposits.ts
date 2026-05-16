@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
+import { sanitize } from '../lib/sanitize'
+import { handleError } from '../lib/errorHandler'
 import type { Deposit } from '../types'
 
 export async function checkDepositExists(
@@ -37,7 +39,7 @@ export function useDeposits() {
       if (dbError) throw dbError
       setDeposits(data ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load deposits')
+      setError(handleError(err, 'Failed to load deposits'))
     } finally {
       setLoading(false)
     }
@@ -49,9 +51,10 @@ export function useDeposits() {
 
   const addDeposit = async (amount: number, date: string, notes: string): Promise<void> => {
     if (!user) throw new Error('Not authenticated')
+    const cleanNotes = notes.trim() ? sanitize(notes, 500) : null
     const { data, error: dbError } = await supabase
       .from('deposits')
-      .insert({ user_id: user.id, amount, date, notes: notes.trim() || null })
+      .insert({ user_id: user.id, amount, date, notes: cleanNotes })
       .select()
       .single()
     if (dbError) throw dbError

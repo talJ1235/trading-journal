@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore, DEFAULT_SETTINGS } from '../store/settingsStore'
+import { sanitizeObject } from '../lib/sanitize'
+import { handleError } from '../lib/errorHandler'
 import type { UserSettings } from '../store/settingsStore'
 
 export function useSettings() {
@@ -36,7 +38,7 @@ export function useSettings() {
         setSettings(DEFAULT_SETTINGS)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load settings')
+      setError(handleError(err, 'Failed to load settings'))
     } finally {
       setLoading(false)
     }
@@ -48,12 +50,13 @@ export function useSettings() {
 
   const updateSettings = async (updates: Partial<UserSettings>): Promise<void> => {
     if (!user) throw new Error('Not authenticated')
+    const clean = sanitizeObject(updates as Record<string, unknown>) as Partial<UserSettings>
     const { error: dbError } = await supabase
       .from('user_settings')
-      .upsert({ user_id: user.id, ...updates }, { onConflict: 'user_id' })
+      .upsert({ user_id: user.id, ...clean }, { onConflict: 'user_id' })
     if (dbError) throw dbError
     const current = useSettingsStore.getState().settings
-    setSettings({ ...current, ...updates })
+    setSettings({ ...current, ...clean })
   }
 
   return { loading, error, updateSettings }

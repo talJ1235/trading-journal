@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
+import { handleError } from '../lib/errorHandler'
 import type { Goal } from '../types'
 
 type GoalUpdate = Partial<Pick<Goal, 'target_amount' | 'target_date' | 'current_amount'>>
@@ -26,7 +27,7 @@ export function useGoals() {
       if (dbError) throw dbError
       setGoal(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load goal')
+      setError(handleError(err, 'Failed to load goal'))
     } finally {
       setLoading(false)
     }
