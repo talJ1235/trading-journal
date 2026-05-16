@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import GoalForm from './GoalForm'
 import type { Goal } from '../../types'
 import type { MonthlyPerfItem } from '../../hooks/usePatterns'
+import { useSettingsStore, formatCurrency } from '../../store/settingsStore'
 
 interface Props {
   goal: Goal | null
@@ -37,6 +38,7 @@ export default function GoalCard({ goal, loading, monthlyPerformance, onCreate, 
   const [showUpdateValue, setShowUpdateValue] = useState(false)
   const [newValue, setNewValue] = useState('')
   const [updatingValue, setUpdatingValue] = useState(false)
+  const { settings } = useSettingsStore()
 
   const handleUpdateValue = async () => {
     if (!goal) return
@@ -122,10 +124,10 @@ export default function GoalCard({ goal, loading, monthlyPerformance, onCreate, 
           <div>
             <div className="flex justify-between text-sm mb-2">
               <span className="font-mono font-bold text-white">
-                ${goal.current_amount.toLocaleString()}
+                {formatCurrency(goal.current_amount, settings.currency)}
               </span>
               <span className="text-zinc-400 font-mono">
-                ${goal.target_amount.toLocaleString()} — {pct.toFixed(0)}%
+                {formatCurrency(goal.target_amount, settings.currency)} — {pct.toFixed(0)}%
               </span>
             </div>
             <div className="h-4 bg-zinc-800 rounded-full overflow-hidden">

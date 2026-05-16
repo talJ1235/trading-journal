@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { ClipboardList, BarChart2, TrendingUp, Target, LogOut } from 'lucide-react'
+import { ClipboardList, BarChart2, TrendingUp, Target, LogOut, Settings } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/review', icon: BarChart2, label: 'Review' },
   { to: '/patterns', icon: TrendingUp, label: 'Patterns' },
   { to: '/goals', icon: Target, label: 'Goals' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ] as const
 
 function UserAvatar({ url, initials }: { url?: string; initials: string }) {
@@ -79,7 +80,7 @@ export default function Navigation() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-[#2A2A2A]">
+        <div className="p-4 border-t border-[#2A2A2A] space-y-1">
           <button
             onClick={handleLogout}
             aria-label="Logout"
@@ -91,7 +92,7 @@ export default function Navigation() {
         </div>
       </aside>
 
-      {/* Mobile bottom navigation — 4 nav items + avatar/logout */}
+      {/* Mobile bottom navigation — 5 nav items */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1A1A1A] border-t border-[#2A2A2A] z-40" aria-label="Main navigation">
         <div className="flex h-[60px]">
           {navItems.map(({ to, icon: Icon, label }) => (
@@ -108,16 +109,6 @@ export default function Navigation() {
               <span>{label}</span>
             </NavLink>
           ))}
-
-          {/* Avatar + logout as 5th item */}
-          <button
-            onClick={handleLogout}
-            aria-label="Logout"
-            className="flex flex-col items-center justify-center flex-1 gap-1 py-2 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
-            <UserAvatar url={avatarUrl} initials={initials} />
-            <span>Logout</span>
-          </button>
         </div>
         {/* Fills the iOS safe area below the nav bar */}
         <div className="pb-safe bg-[#1A1A1A]" />

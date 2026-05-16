@@ -15,6 +15,7 @@ const TradesPage = lazy(() => import('./pages/TradesPage'))
 const ReviewPage = lazy(() => import('./pages/ReviewPage'))
 const PatternsPage = lazy(() => import('./pages/PatternsPage'))
 const GoalsPage = lazy(() => import('./pages/GoalsPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 const SESSION_KEY = 'session_start'
 const MAX_SESSION_AGE = 7 * 24 * 60 * 60 * 1000
@@ -31,6 +32,7 @@ function AppShell() {
           <Route path="/review" element={<ErrorBoundary><ReviewPage /></ErrorBoundary>} />
           <Route path="/patterns" element={<ErrorBoundary><PatternsPage /></ErrorBoundary>} />
           <Route path="/goals" element={<ErrorBoundary><GoalsPage /></ErrorBoundary>} />
+          <Route path="/settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
           <Route path="*" element={<Navigate to="/trades" replace />} />
         </Routes>
       </main>

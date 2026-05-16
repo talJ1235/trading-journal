@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Trash2 } from 'lucide-react'
 import type { Trade } from '../../types'
-import { formatPnl, formatPct, emotionEmoji, formatDate } from '../../lib/utils'
+import { formatPct, emotionEmoji, formatDate } from '../../lib/utils'
+import { useSettingsStore, formatPnlCurrency } from '../../store/settingsStore'
 import TagBadge from './TagBadge'
 
 interface Props {
@@ -24,6 +25,7 @@ function FollowedPlanBadge({ value }: { value: Trade['followed_plan'] }) {
 export default function TradeCard({ trade, onDelete }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const { settings } = useSettingsStore()
 
   const pnlPositive = trade.pnl != null && trade.pnl > 0
   const pnlColor = trade.pnl == null ? 'text-zinc-400' : pnlPositive ? 'text-green-500' : 'text-red-500'
@@ -69,7 +71,7 @@ export default function TradeCard({ trade, onDelete }: Props) {
           <div className="flex items-start gap-2 ml-2 flex-shrink-0">
             <div className="text-right">
               <p className={`font-bold font-mono text-sm ${pnlColor}`}>
-                {formatPnl(trade.pnl)}
+                {formatPnlCurrency(trade.pnl, settings.currency)}
               </p>
               <p className={`text-xs font-mono ${pnlColor}`}>
                 {formatPct(trade.pnl, trade.entry_price, trade.quantity)}

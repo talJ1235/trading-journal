@@ -1,11 +1,13 @@
-import { useState } from 'react'
-import { Plus, Upload } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Upload, RefreshCw } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useTradesStore } from '../../store/tradesStore'
+import { useLivePrices } from '../../hooks/useLivePrices'
 import type { Trade } from '../../types'
 import TradeCard from './TradeCard'
 import TradeFilters from './TradeFilters'
 import TradeSkeleton from './TradeSkeleton'
+import OpenPositionCard from './OpenPositionCard'
 
 interface FilterState {
   typeFilter: 'all' | 'stock' | 'etf'
@@ -40,6 +42,10 @@ export default function TradeHistory({ onAddTrade, onDelete, onImportCsv }: Prop
     dateTo: '',
   })
 
+  const openPositions = useMemo(() => trades.filter((t) => !t.exit_date), [trades])
+  const openSymbols = useMemo(() => openPositions.map((t) => t.symbol), [openPositions])
+  const { prices, refresh: refreshPrices, lastUpdated } = useLivePrices(openSymbols)
+
   const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
   }
@@ -48,6 +54,36 @@ export default function TradeHistory({ onAddTrade, onDelete, onImportCsv }: Prop
 
   return (
     <div className="relative">
+      {/* Open Positions */}
+      {openPositions.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-zinc-400 uppercase tracking-wide">
+              Open Positions ({openPositions.length})
+            </span>
+            <button
+              onClick={() => void refreshPrices()}
+              className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              aria-label="Refresh prices"
+            >
+              <RefreshCw size={11} />
+              {lastUpdated
+                ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : 'Refresh'}
+            </button>
+          </div>
+          <div className="space-y-2">
+            {openPositions.map((trade) => (
+              <OpenPositionCard
+                key={trade.id}
+                trade={trade}
+                livePrice={prices[trade.symbol]}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Header row */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-zinc-400 text-sm">{trades.length} trade{trades.length !== 1 ? 's' : ''}</span>
